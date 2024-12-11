@@ -119,6 +119,20 @@ Note that this feature is only available for the `NotebookLite`, `JupyterLite`, 
 `Voici` directives and works with the `.ipynb` files passed to them. It is not implemented
 for the `TryExamples` directive.
 
+## Standalone mode
+
+When using the `JupyterLite` directive, one can render the notebook in standalone mode without the
+JupyterLite UI and the rest of the elements of the page, such as the sidebars and the header.
+
+This behaviour can be enabled by setting the following config:
+
+```python
+jupyterlite_standalone_notebook = True
+```
+
+It is also possible to override this behaviour on a per-notebook level. Please refer to the
+[`JupyterLite` directive](directives/jupyterlite.md#standalone-mode) page for more details.
+
 ## Disable the `.ipynb` docs source binding
 
 By default, jupyterlite-sphinx binds the `.ipynb` source suffix so that it renders Notebooks included in the doctree with JupyterLite.
