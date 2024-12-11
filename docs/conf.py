@@ -11,6 +11,7 @@ html_logo = "_static/icon.svg"
 
 jupyterlite_contents = "./custom_contents"
 jupyterlite_bind_ipynb_suffix = False
+jupyterlite_standalone_notebook = False
 strip_tagged_cells = True
 
 master_doc = "index"
