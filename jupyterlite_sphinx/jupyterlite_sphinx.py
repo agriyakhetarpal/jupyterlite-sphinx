@@ -116,15 +116,30 @@ class _InTab(Element):
         self,
         rawsource="",
         *children,
+        env=None,
         prefix=JUPYTERLITE_DIR,
         notebook=None,
         lite_options={},
+        standalone=None,
         **attributes,
     ):
-        app_path = self.lite_app
+        self.env = env
+
+        use_standalone = (
+            standalone
+            if standalone is not None
+            else (env and env.app.config.jupyterlite_standalone_notebook)
+        )
+
+        if use_standalone:
+            app_path = "notebooks/"
+        else:
+            app_path = self.lite_app
+
         if notebook is not None:
             lite_options["path"] = notebook
-            app_path = f"{self.lite_app}{self.notebooks_path}"
+            if hasattr(self, "notebooks_path"):
+                app_path = f"{app_path}{self.notebooks_path}"
 
         options = "&".join(
             [f"{key}={quote(value)}" for key, value in lite_options.items()]
@@ -151,22 +166,39 @@ class _LiteIframe(_PromptedIframe):
         self,
         rawsource="",
         *children,
+        env=None,
         prefix=JUPYTERLITE_DIR,
         content=[],
         notebook=None,
         lite_options={},
+        standalone=None,
         **attributes,
     ):
+        self.env = env
+
         if content:
             code_lines = ["" if not line.strip() else line for line in content]
             code = "\n".join(code_lines)
 
             lite_options["code"] = code
 
-        app_path = self.lite_app
+        # We use the standalone parameter if provided, otherwise we use
+        # the global config
+        use_standalone = (
+            standalone
+            if standalone is not None
+            else (env and env.app.config.jupyterlite_standalone_notebook)
+        )
+
+        if use_standalone:
+            app_path = "notebooks/"
+        else:
+            app_path = self.lite_app
+
         if notebook is not None:
             lite_options["path"] = notebook
-            app_path = f"{self.lite_app}{self.notebooks_path}"
+            if hasattr(self, "notebooks_path"):
+                app_path = f"{app_path}{self.notebooks_path}"
 
         options = "&".join(
             [f"{key}={quote(value)}" for key, value in lite_options.items()]
@@ -312,6 +344,7 @@ class _LiteDirective(SphinxDirective):
         "prompt_color": directives.unchanged,
         "search_params": directives.unchanged,
         "new_tab": directives.unchanged,
+        "standalone": directives.unchanged,
     }
 
     def run(self):
@@ -324,6 +357,12 @@ class _LiteDirective(SphinxDirective):
         search_params = search_params_parser(self.options.pop("search_params", False))
 
         new_tab = self.options.pop("new_tab", False)
+
+        standalone_str = self.options.pop("standalone", None)
+        if standalone_str is not None:
+            standalone = standalone_str.lower() == "true"
+        else:
+            standalone = self.env.config.jupyterlite_standalone_notebook
 
         source_location = os.path.dirname(self.get_source_info()[0])
 
@@ -375,6 +414,7 @@ class _LiteDirective(SphinxDirective):
         if new_tab:
             return [
                 self.newtab_cls(
+                    env=self.env,
                     prefix=prefix,
                     notebook=notebook_name,
                     width=width,
@@ -383,11 +423,13 @@ class _LiteDirective(SphinxDirective):
                     prompt_color=prompt_color,
                     search_params=search_params,
                     lite_options=self.options,
+                    standalone=standalone,
                 )
             ]
 
         return [
             self.iframe_cls(
+                env=self.env,
                 prefix=prefix,
                 notebook=notebook_name,
                 width=width,
@@ -396,6 +438,7 @@ class _LiteDirective(SphinxDirective):
                 prompt_color=prompt_color,
                 search_params=search_params,
                 lite_options=self.options,
+                standalone=standalone,
             )
         ]
 
