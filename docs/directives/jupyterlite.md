@@ -21,7 +21,7 @@
 You can also pass a Notebook file to open automatically:
 
 ```rst
-.. jupyterlite:: my_notebook.ipynb
+.. jupyterlite:: my_jupyterlite_notebook.ipynb
    :width: 100%
    :height: 600px
    :prompt: Try JupyterLite!
@@ -29,7 +29,7 @@ You can also pass a Notebook file to open automatically:
 ```
 
 ```{eval-rst}
-.. jupyterlite:: my_notebook.ipynb
+.. jupyterlite:: my_jupyterlite_notebook.ipynb
    :width: 100%
    :height: 600px
    :prompt: Try JupyterLite!
@@ -59,12 +59,12 @@ The tab will render the full-fledged Lab interface, which is more complete and s
 of JupyterLite.
 
 ```rst
-.. jupyterlite:: my_notebook.ipynb
+.. jupyterlite:: my_jupyterlite_notebook.ipynb
    :new_tab: True
 ```
 
 ```{eval-rst}
-.. jupyterlite:: my_notebook.ipynb
+.. jupyterlite:: my_jupyterlite_notebook.ipynb
    :new_tab: True
 ```
 
@@ -72,13 +72,13 @@ When using this option, it is also possible to customise the button text, overri
 global value using an additional `:new_tab_button_text:` parameter:
 
 ```rst
-.. jupyterlite:: my_notebook.ipynb
+.. jupyterlite:: my_jupyterlite_notebook.ipynb
    :new_tab: True
    :new_tab_button_text: My custom JupyterLite button text
 ```
 
 ```{eval-rst}
-.. jupyterlite:: my_notebook.ipynb
+.. jupyterlite:: my_jupyterlite_notebook.ipynb
    :new_tab: True
    :new_tab_button_text: My custom JupyterLite button text
 ```

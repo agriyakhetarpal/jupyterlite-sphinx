@@ -585,11 +585,40 @@ class _LiteDirective(SphinxDirective):
 
             notebook_is_stripped: bool = self.env.config.strip_tagged_cells
 
+            # Determine and apply the notebook modification functions based on
+            # the directive type as appropriate (if they exist). This does not
+            # check for the TryExamples directive, as it does not derive from
+            # the _LiteDirective class; we will handle that separately in the
+            # TryExamplesDirective class below in mostly the same way as we
+            # handle the other directives here.
+            mod_function = None
+            if isinstance(self, JupyterLiteDirective):
+                mod_function = getattr(self.env.config, "jupyterlite_lab_notebook_modification_function", None)
+            elif isinstance(self, NotebookLiteDirective):
+                mod_function = getattr(self.env.config, "jupyterlite_retro_notebook_modification_function", None)
+            elif isinstance(self, VoiciDirective):
+                mod_function = getattr(self.env.config, "jupyterlite_voici_notebook_modification_function", None)
+            else:
+                err_msg = f"Unknown directive type: cannot determine notebook modification function {mod_function}"
+                raise RuntimeError(err_msg)
+
             if notebook_path.suffix.lower() == ".md":
                 if self._target_is_stale(notebook_path, target_path):
                     nb = jupytext.read(str(notebook_path))
                     if notebook_is_stripped:
                         nb.cells = _strip_notebook_cells(nb)
+
+                    # Apply the modification function, if available and callable.
+                    if mod_function and callable(mod_function):
+                        try:
+                            mod_function(nb, target_name)
+                        except Exception as e:
+                            from sphinx.util import logging
+                            logger = logging.getLogger("jupyterlite-sphinx")
+                            logger.warning(
+                                f"Error applying notebook modification function to {target_name}: {str(e)}"
+                            )
+
                     with open(target_path, "w", encoding="utf-8") as f:
                         nbformat.write(nb, f, version=4)
 
@@ -602,15 +631,45 @@ class _LiteDirective(SphinxDirective):
                 if notebook_is_stripped:
                     nb = nbformat.read(notebook, as_version=4)
                     nb.cells = _strip_notebook_cells(nb)
+
+                    # Apply the modification function, if available and callable.
+                    if mod_function and callable(mod_function):
+                        try:
+                            mod_function(nb, notebook_name)
+                        except Exception as e:
+                            from sphinx.util import logging
+                            logger = logging.getLogger("jupyterlite-sphinx")
+                            logger.warning(
+                                f"Error applying notebook modification function to {notebook_name}: {str(e)}"
+                            )
+
                     nbformat.write(nb, target_path, version=4)
                 # If notebook_is_stripped is False, then copy the notebook(s) to notebooks_dir.
                 # If it is True, then they have already been copied to notebooks_dir by the
                 # nbformat.write() function above.
                 else:
-                    try:
-                        shutil.copy(notebook, target_path)
-                    except shutil.SameFileError:
-                        pass
+                    # Apply the modification function, if available and callable.
+                    if mod_function and callable(mod_function):
+                        try:
+                            nb = nbformat.read(notebook, as_version=4)
+                            mod_function(nb, notebook_name)
+                            nbformat.write(nb, target_path, version=4)
+                        except Exception as e:
+                            from sphinx.util import logging
+                            logger = logging.getLogger("jupyterlite-sphinx")
+                            logger.warning(
+                                f"Error applying notebook modification function to {notebook_name}: {str(e)}"
+                            )
+                            # Fall back to copying the original notebook
+                            try:
+                                shutil.copy(notebook, target_path)
+                            except shutil.SameFileError:
+                                pass
+                    else:
+                        try:
+                            shutil.copy(notebook, target_path)
+                        except shutil.SameFileError:
+                            pass
 
         else:
             notebook_name = None
@@ -796,12 +855,39 @@ class TryExamplesDirective(SphinxDirective):
 
         if notebook_unique_name is None:
             nb = examples_to_notebook(self.content, warning_text=warning_text)
+
+            mod_function = getattr(self.env.config, "try_examples_notebook_modification_function", None)
+
+            # Handle potential conflict with warning_text; we don't want to have both a
+            # global warning and a modification function taking care of the same thing.
+            # If there's a global warning text and a modification function, we should
+            # ask the user to incorporate the warning text into the modification function.
+            if warning_text and mod_function:
+                from sphinx.util import logging
+                logger = logging.getLogger("jupyterlite-sphinx")
+                logger.warning(
+                    "Both try_examples_global_warning_text and try_examples_notebook_modification_function "
+                    "are specified. Consider incorporating the warning text into your modification function."
+                )
+
             self.content = None
             notebooks_dir = Path(self.env.app.srcdir) / CONTENT_DIR
             notebook_unique_name = f"{uuid4()}.ipynb".replace("-", "_")
             self.env.temp_data["generated_notebooks"][
                 directive_key
             ] = notebook_unique_name
+
+            # Apply the modification function, if available and callable
+            if mod_function and callable(mod_function):
+                try:
+                    mod_function(nb, notebook_unique_name)
+                except Exception as e:
+                    from sphinx.util import logging
+                    logger = logging.getLogger("jupyterlite-sphinx")
+                    logger.warning(
+                        f"Error applying notebook modification function to {notebook_unique_name}: {str(e)}"
+                    )
+
             # Copy the Notebook for NotebookLite to find
             os.makedirs(notebooks_dir, exist_ok=True)
             with open(
@@ -1080,8 +1166,16 @@ def setup(app):
     # Pass a dictionary of additional options to the JupyterLite build command
     app.add_config_value("jupyterlite_build_command_options", None, rebuild="html")
 
+    # Notebook post-processing functions
+    app.add_config_value("jupyterlite_lab_notebook_modification_function", None, rebuild=True)
+    app.add_config_value("jupyterlite_retro_notebook_modification_function", None, rebuild=True)
+    app.add_config_value("jupyterlite_voici_notebook_modification_function", None, rebuild=True)
+    app.add_config_value("try_examples_notebook_modification_function", None, rebuild=True)
+
+    # TryExamples directive configuration
     app.add_config_value("global_enable_try_examples", default=False, rebuild=True)
     app.add_config_value("try_examples_global_theme", default=None, rebuild=True)
+
     app.add_config_value("try_examples_global_warning_text", default=None, rebuild=True)
     app.add_config_value(
         "try_examples_global_button_text",
