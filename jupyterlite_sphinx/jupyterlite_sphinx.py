@@ -23,6 +23,9 @@ from sphinx.util.docutils import SphinxDirective
 from sphinx.util.fileutil import copy_asset
 from sphinx.parsers import RSTParser
 
+from jupyterlite_sphinx._nb_utils import _strip_notebook_cells
+
+
 from ._try_examples import examples_to_notebook, insert_try_examples_directive
 
 import jupytext
@@ -535,30 +538,6 @@ class _LiteDirective(SphinxDirective):
 
         return target_ipynb
 
-    def _strip_notebook_cells(
-        self, nb: nbformat.NotebookNode
-    ) -> List[nbformat.NotebookNode]:
-        """Strip cells based on the presence of the "jupyterlite_sphinx_strip" tag
-        in the metadata. The content meant to be stripped must be inside its own cell
-        cell so that the cell itself gets removed from the notebooks. This is so that
-        we don't end up removing useful data or directives that are not meant to be
-        removed.
-
-        Parameters
-        ----------
-        nb : nbformat.NotebookNode
-            The notebook object to be stripped.
-
-        Returns
-        -------
-        List[nbformat.NotebookNode]
-            A list of cells that are not meant to be stripped.
-        """
-        return [
-            cell
-            for cell in nb.cells
-            if "jupyterlite_sphinx_strip" not in cell.metadata.get("tags", [])
-        ]
 
     def run(self):
         width = self.options.pop("width", "100%")
@@ -610,7 +589,7 @@ class _LiteDirective(SphinxDirective):
                 if self._target_is_stale(notebook_path, target_path):
                     nb = jupytext.read(str(notebook_path))
                     if notebook_is_stripped:
-                        nb.cells = self._strip_notebook_cells(nb)
+                        nb.cells = _strip_notebook_cells(nb)
                     with open(target_path, "w", encoding="utf-8") as f:
                         nbformat.write(nb, f, version=4)
 
@@ -622,7 +601,7 @@ class _LiteDirective(SphinxDirective):
 
                 if notebook_is_stripped:
                     nb = nbformat.read(notebook, as_version=4)
-                    nb.cells = self._strip_notebook_cells(nb)
+                    nb.cells = _strip_notebook_cells(nb)
                     nbformat.write(nb, target_path, version=4)
                 # If notebook_is_stripped is False, then copy the notebook(s) to notebooks_dir.
                 # If it is True, then they have already been copied to notebooks_dir by the
